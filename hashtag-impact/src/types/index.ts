@@ -7,6 +7,7 @@ export interface OwnerDetails {
     name?: string; // e.g. "SCI ...", "M. X"
     nafCode?: string; // e.g. "9609Z"
     siren?: string;
+    status?: 'Active' | 'Inactive' | 'Liquidation'; // Added for scoring
 }
 
 export interface EnergyDetails {
@@ -26,6 +27,13 @@ export interface ScoringDetails {
     buildingAge: number;
     hasVacantLotIdentified: boolean; // Cross-ref DVF/Cadastre
     floorIdentified: boolean; // Via DPE/Ademe
+}
+
+export interface ConsumptionDetails {
+    real: number; // MWh/year
+    theoretical: number; // MWh/year
+    ratio: number;
+    segment: string;
 }
 
 export interface Property {
@@ -57,6 +65,12 @@ export interface Property {
     orientation?: 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW';
     numberOfLots?: number;
     floor?: number;
+    floors?: number;
+    buildingSurface?: number;
+    nearbyValidAddress?: string;
+
+    // Detailed Consumption Data
+    consumptionDetails?: ConsumptionDetails;
     typology?: string;
     legalStatus?: 'Co-ownership' | 'Single Owner' | 'Public' | 'Indivision';
     ecologicalPotential?: 'High' | 'Medium' | 'Low';

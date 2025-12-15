@@ -253,22 +253,28 @@ export default function Search() {
                                     </div>
                                 </div>
 
+                                {p.nearbyValidAddress && (
+                                    <div style={{ padding: '8px', marginBottom: '16px', background: '#FFF4E5', color: '#663C00', borderRadius: '4px', fontSize: '0.875rem' }}>
+                                        ⚠️ Données exactes non trouvées. Affichage des données extrapolées pour : <strong>{p.nearbyValidAddress}</strong>
+                                    </div>
+                                )}
+
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                                     <div className="badge-info">
-                                        <span className="label">Surface</span>
+                                        <span className="label">Surface (Lot)</span>
                                         <span className="value">{p.area} m²</span>
                                     </div>
                                     <div className="badge-info">
-                                        <span className="label">Type</span>
-                                        <span className="value">{p.type} ({p.typology})</span>
+                                        <span className="label">Surf. Bâtiment</span>
+                                        <span className="value">{p.buildingSurface ? Math.round(p.buildingSurface) + ' m²' : 'N/A'}</span>
                                     </div>
                                     <div className="badge-info">
                                         <span className="label">Orientation</span>
-                                        <span className="value">{p.orientation}</span>
+                                        <span className="value">{p.orientation || 'N/A'}</span>
                                     </div>
                                     <div className="badge-info">
-                                        <span className="label">Juridique</span>
-                                        <span className="value">{p.legalStatus}</span>
+                                        <span className="label">{p.type === 'Building' ? 'Logements' : 'Lots'}</span>
+                                        <span className="value">{p.numberOfLots || 1}</span>
                                     </div>
                                 </div>
 

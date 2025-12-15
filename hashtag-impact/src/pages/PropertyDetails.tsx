@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getPropertyById } from '../services/PropertyService';
 import type { Property } from '../types';
-import { ArrowLeft, Building2, Zap, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Zap, CheckCircle } from 'lucide-react';
 
 export default function PropertyDetails() {
     const { id } = useParams<{ id: string }>();
@@ -51,33 +51,10 @@ export default function PropertyDetails() {
                             <span className="value">{property.floor}</span>
                         </div>
                         <div className="badge-info" style={{ background: 'white', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
-                            <span className="label">Lots</span>
+                            <span className="label">{property.type === 'Building' ? 'Logements' : 'Lots'}</span>
                             <span className="value">{property.numberOfLots}</span>
                         </div>
                     </div>
-
-                    {/* Building Insights (F03) */}
-                    {(property.buildingInfo?.vacantUnitsCount ?? 0) > 0 && (
-                        <div style={{ padding: 'var(--space-6)', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', marginBottom: 'var(--space-8)', boxShadow: 'var(--shadow-sm)' }}>
-                            <h3 style={{ color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', fontSize: '1.1rem', fontWeight: 700 }}>
-                                <Building2 size={20} /> Gisement Immeuble Détecté
-                            </h3>
-                            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-                                <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-primary)' }}>
-                                    {property.buildingInfo?.vacantUnitsCount}
-                                </div>
-                                <div>
-                                    <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: '4px' }}>autres lots vacants détectés</p>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase' }}>Étages concernés :</span>
-                                        {property.buildingInfo?.vacantFloors.map((f, i) => (
-                                            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>• Étage {f}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* F02 - Energy Sieve Warning */}
                     {property.energy?.isEnergySieve && (
@@ -120,48 +97,109 @@ export default function PropertyDetails() {
                     </div>
                 </div>
 
+                {/* Consumption Analysis (New) */}
+                {property.consumptionDetails && (
+                    <div style={{ padding: 'var(--space-6)', background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', marginBottom: 'var(--space-8)', boxShadow: 'var(--shadow-sm)' }}>
+                        <h3 style={{ color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', fontSize: '1.1rem', fontWeight: 700 }}>
+                            <Zap size={20} /> Analyse de la Consommation
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                            <div style={{ background: '#F3F4F6', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+                                <span style={{ display: 'block', fontSize: '0.8rem', color: '#6B7280', textTransform: 'uppercase', fontWeight: 600 }}>Théorique (DPE)</span>
+                                <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 700, color: '#374151' }}>{property.consumptionDetails.theoretical.toFixed(1)} <small style={{ fontSize: '0.9rem' }}>MWh/an</small></span>
+                            </div>
+                            <div style={{ background: property.consumptionDetails.ratio < 0.5 ? '#FEF3C7' : '#D1FAE5', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+                                <span style={{ display: 'block', fontSize: '0.8rem', color: property.consumptionDetails.ratio < 0.5 ? '#B45309' : '#047857', textTransform: 'uppercase', fontWeight: 600 }}>Réelle (Enedis)</span>
+                                <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 700, color: property.consumptionDetails.ratio < 0.5 ? '#B45309' : '#047857' }}>
+                                    {property.consumptionDetails.real > 0 ? property.consumptionDetails.real.toFixed(1) : '—'} <small style={{ fontSize: '0.9rem' }}>MWh/an</small>
+                                </span>
+                            </div>
+                        </div>
+                        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3)', background: '#EFF6FF', borderRadius: 'var(--radius-md)', color: '#1E40AF', fontSize: '0.9rem' }}>
+                            <strong>Ratio :</strong> {(property.consumptionDetails.ratio * 100).toFixed(0)}% de la consommation théorique standard.
+                            {property.consumptionDetails.ratio < 0.2 && <span style={{ fontWeight: 800, marginLeft: '4px' }}> Anormalement faible.</span>}
+                        </div>
+                    </div>
+                )}
+
                 {/* Score Breakdown (F01/F04) */}
                 <div style={{ background: 'white', padding: 'var(--space-6)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--color-border)' }}>
                     <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-6)' }}>
                         <span style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--color-primary)', display: 'block' }}>{property.vacancyScore}/100</span>
-                        <span style={{ textTransform: 'uppercase', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>Score Vacance Calculé</span>
+
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '16px', background: property.vacancyScore > 50 ? '#FEF2F2' : '#F0FDF4', color: property.vacancyScore > 50 ? '#DC2626' : '#166534', fontWeight: 700, fontSize: '0.9rem', marginBottom: '8px' }}>
+                            {property.vacancyScore > 75 ? 'Forte Suspicion' : property.vacancyScore > 40 ? 'Suspicion Modérée' : 'Faible Suspicion'}
+                        </div>
+
+                        <span style={{ display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginTop: '4px' }}>Indice de Vacance</span>
                     </div>
 
                     <h3 style={{ fontWeight: 700, marginBottom: 'var(--space-4)' }}>Détail du calcul (Spec 3.1)</h3>
 
-                    {attrs && (
+                    {attrs ? (
                         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                            {attrs.consumptionRatio < 0.20 && (
-                                <ScoreItem label="Consommation très faible (<20%)" points="+3" />
+                            <ScoreItem
+                                label="Consommation très faible (< 20% moy.)"
+                                met={attrs.consumptionRatio < 0.20}
+                                points="+40"
+                            />
+                            <ScoreItem
+                                label="Consommation très forte (> 150% moy.)"
+                                met={attrs.consumptionRatio > 1.50}
+                                points="+20"
+                            />
+                            <ScoreItem
+                                label={`Pas de transaction DVF > 5 ans (${attrs.yearsSinceLastTransaction} ans)`}
+                                met={attrs.yearsSinceLastTransaction > 5}
+                                points="+20"
+                            />
+                            <ScoreItem
+                                label="Propriétaire décédé"
+                                met={attrs.ownerStatus === 'Deceased'}
+                                points="+20"
+                            />
+                            <ScoreItem
+                                label="Structure SCI/Indivision Inactive"
+                                met={attrs.isSciOrIndivision && attrs.ownerStatus === 'Inactive'}
+                                points="+20"
+                            />
+                            <ScoreItem
+                                label="Structure en Liquidation / Redressement"
+                                met={attrs.isSciOrIndivision && attrs.ownerStatus === 'Liquidation'}
+                                points="+30"
+                            />
+                            <ScoreItem
+                                label={`Passoire Énergétique (DPE ${attrs.dpeClass})`}
+                                met={['E', 'F', 'G'].includes(attrs.dpeClass)}
+                                points="+10"
+                            />
+                            <ScoreItem
+                                label="Lot vacant identifié (Croisement)"
+                                met={attrs.hasVacantLotIdentified}
+                                points="+30"
+                            />
+                            <ScoreItem
+                                label="Façade inchangée (Street View > 5 ans)"
+                                met={attrs.facadeUnchangedYears > 5}
+                                points="+10"
+                            />
+                            <ScoreItem
+                                label="Étage identifié via DPE/Ademe"
+                                met={attrs.floorIdentified}
+                                points="+5"
+                            />
+                        </ul>
+                    ) : (
+                        <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                            {property.insights.map((insight, index) => (
+                                <li key={index} style={{ display: 'flex', alignItems: 'start', gap: 'var(--space-2)', fontSize: '0.9rem' }}>
+                                    <CheckCircle size={14} className="text-primary" style={{ marginTop: '3px', flexShrink: 0 }} />
+                                    <span>{insight}</span>
+                                </li>
+                            ))}
+                            {property.insights.length === 0 && (
+                                <li style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Aucun signal spécifique détecté.</li>
                             )}
-                            {attrs.consumptionRatio > 1.50 && (
-                                <ScoreItem label="Consommation excessive (>150%)" points="+2" />
-                            )}
-                            {attrs.ownerStatus === 'Deceased' && (
-                                <ScoreItem label="Propriétaire décédé" points="+3" />
-                            )}
-                            {attrs.yearsSinceLastTransaction > 5 && (
-                                <ScoreItem label={`Pas de mutation depuis ${attrs.yearsSinceLastTransaction} ans`} points="+2" />
-                            )}
-                            {attrs.facadeUnchangedYears > 5 && (
-                                <ScoreItem label="Façade inchangée (Street View)" points="+4" />
-                            )}
-                            {attrs.isSciOrIndivision && attrs.ownerStatus === 'Inactive' && (
-                                <ScoreItem label="SCI/Indivision Inactive" points="+2" />
-                            )}
-                            {attrs.isSciOrIndivision && attrs.ownerStatus === 'Liquidation' && (
-                                <ScoreItem label="SCI en Liquidation" points="+3" />
-                            )}
-                            {/* [STRICT ALIGNMENT] Extras disabled in PropertyService, so disabled in UI
-                            {(['E', 'F', 'G'].includes(attrs.dpeClass) || (attrs.buildingAge > 30 && attrs.dpeClass === 'Unknown')) && (
-                                <ScoreItem label="DPE E-G ou Bâti Ancien sans DPE" points="+2" />
-                            )}
-                            {attrs.hasVacantLotIdentified && (
-                                <ScoreItem label="Lot vacant identifié (Croisement)" points="+3" />
-                            )}
-                            {attrs.floorIdentified && (
-                                <ScoreItem label="Étage identifié (DPE/Ademe)" points="+1" />
-                            )} */ }
                         </ul>
                     )}
                 </div>
@@ -170,11 +208,20 @@ export default function PropertyDetails() {
     );
 }
 
-const ScoreItem = ({ label, points }: { label: string, points: string }) => (
-    <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+const ScoreItem = ({ label, points, met }: { label: string, points: string, met: boolean }) => (
+    <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', opacity: met ? 1 : 0.6 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <CheckCircle size={14} className="text-primary" /> {label}
+            <CheckCircle size={14} className={met ? "text-primary" : "text-muted"} color={met ? 'var(--color-primary)' : '#9CA3AF'} />
+            {label}
         </span>
-        <span style={{ fontWeight: 700, background: 'var(--color-primary-subtle)', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '12px' }}>{points} pts</span>
+        <span style={{
+            fontWeight: 700,
+            background: met ? 'var(--color-primary-subtle)' : '#F3F4F6',
+            color: met ? 'var(--color-primary)' : '#9CA3AF',
+            padding: '2px 8px',
+            borderRadius: '12px'
+        }}>
+            {met ? points : '0 pts'}
+        </span>
     </li>
 );

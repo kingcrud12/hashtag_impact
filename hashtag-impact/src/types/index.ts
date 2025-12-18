@@ -15,6 +15,8 @@ export interface EnergyDetails {
     gesClass: string; // A-G
     estimatedConsumption: number; // kWh/m²/year
     isEnergySieve: boolean; // True if F or G
+    surfaceEstimate?: number; // From DPE surface_habitable
+    orientationEstimate?: string; // From DPE
 }
 
 export interface ScoringDetails {
@@ -62,7 +64,7 @@ export interface Property {
     scoringAttributes?: ScoringDetails;
 
     // Advanced Search Fields
-    orientation?: 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW';
+    orientation?: 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW' | 'N/A';
     numberOfLots?: number;
     floor?: number;
     floors?: number;
@@ -81,4 +83,14 @@ export interface Property {
         vacantUnitsCount: number;
         vacantFloors: number[];
     };
+    buildingDetails?: BuildingDetails;
+}
+
+export interface BuildingDetails {
+    rnicId: string;
+    totalLots: number;
+    constructionYear: number;
+    isPeril: boolean; // Georisques
+    isInsalubre: boolean;
+    valeurAssuree?: number; // Added for fun/richness
 }

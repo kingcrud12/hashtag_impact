@@ -5,11 +5,17 @@ import type { Property } from '../types';
 import { Filter, SlidersHorizontal, HelpCircle } from 'lucide-react';
 import Button from '../components/Button';
 
+import { autocompleteAddress, type BanFeature } from '../services/api/ban';
+
 export default function Search() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [results, setResults] = useState<Property[]>([]);
     const [showFilters, setShowFilters] = useState(false);
+
+    // Autocomplete State
+    const [suggestions, setSuggestions] = useState<BanFeature[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     // Filters State
     const [filters, setFilters] = useState<PropertyFilters>({
@@ -36,6 +42,25 @@ export default function Search() {
 
     const handleFilterChange = (key: keyof PropertyFilters, value: any) => {
         setFilters(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleQueryChange = async (val: string) => {
+        handleFilterChange('query', val);
+        if (val.length > 3) {
+            const hits = await autocompleteAddress(val);
+            setSuggestions(hits);
+            setShowSuggestions(hits.length > 0);
+        } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    const selectAddress = (feature: BanFeature) => {
+        handleFilterChange('query', feature.properties.label);
+        setSuggestions([]);
+        setShowSuggestions(false);
+        runSearch();
     };
 
     return (
@@ -78,14 +103,14 @@ export default function Search() {
                 </div>
 
                 {/* Localisation */}
-                <div className="filter-group">
+                <div className="filter-group" style={{ position: 'relative' }}>
                     <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-2)', fontSize: '0.875rem' }}>Localisation</label>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                         <input
                             type="text"
                             placeholder="Ville, Code postal..."
                             value={filters.query || ''}
-                            onChange={(e) => handleFilterChange('query', e.target.value)}
+                            onChange={(e) => handleQueryChange(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && runSearch()}
                             style={{ flex: 1, padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
                         />
@@ -108,6 +133,41 @@ export default function Search() {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         </button>
                     </div>
+
+                    {/* Autocomplete Dropdown */}
+                    {showSuggestions && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            background: 'white',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-md)',
+                            boxShadow: 'var(--shadow-lg)',
+                            zIndex: 50,
+                            marginTop: '4px',
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                        }}>
+                            {suggestions.map((s, i) => (
+                                <div
+                                    key={i}
+                                    onClick={() => selectAddress(s)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.875rem',
+                                        borderBottom: i < suggestions.length - 1 ? '1px solid var(--color-border)' : 'none'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                                >
+                                    {s.properties.label}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Score Vacance */}

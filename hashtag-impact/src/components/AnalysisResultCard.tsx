@@ -1,5 +1,5 @@
 import type { Property } from '../types';
-import { CheckCircle, AlertTriangle, Leaf, Users, Zap, Building } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Leaf, Users, Zap, Building, CircleHelp } from 'lucide-react';
 
 interface AnalysisResultCardProps {
     property: Property;
@@ -94,6 +94,52 @@ export default function AnalysisResultCard({ property }: AnalysisResultCardProps
                     </div>
                     <p style={{ fontWeight: 600 }}>{property.owner?.type === 'Company' ? 'Personne Morale' : 'Particulier'}</p>
                 </div>
+
+                {/* New Building Details Block */}
+                {property.buildingDetails && (
+                    <div style={{ background: 'white', padding: 'var(--space-4)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', gridColumn: '1 / -1' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                            <Building size={16} color="var(--color-primary)" />
+                            <h3 style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Immeuble / Copropriété</h3>
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Lots</span>
+                                <span style={{ fontWeight: 600 }}>{property.buildingDetails.totalLots}</span>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    Surf. Bâtiment
+                                    <div title="Surface estimée (Moyenne des lots * Nombre de lots). Donnée probabiliste non contractuelle." style={{ cursor: 'help' }}>
+                                        <CircleHelp size={12} />
+                                    </div>
+                                </div>
+                                <div style={{ fontWeight: 600, fontSize: '1.125rem' }}>
+                                    {Math.round(property.buildingSurface || 0)} m²
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Année</span>
+                                <span style={{ fontWeight: 600 }}>{property.buildingDetails.constructionYear > 0 ? property.buildingDetails.constructionYear : 'Inconnue'}</span>
+                            </div>
+                            {property.buildingDetails.isPeril && (
+                                <div style={{ padding: '4px 8px', background: '#FEF2F2', color: '#DC2626', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #FECACA' }}>
+                                    PERIL IMMINENT
+                                </div>
+                            )}
+                            {property.buildingDetails.isInsalubre && (
+                                <div style={{ padding: '4px 8px', background: '#FFF7ED', color: '#EA580C', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #FED7AA' }}>
+                                    INSALUBRE
+                                </div>
+                            )}
+                            {!property.buildingDetails.isPeril && !property.buildingDetails.isInsalubre && (
+                                <div style={{ padding: '4px 8px', background: '#F0FDF4', color: '#16A34A', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, border: '1px solid #BBF7D0' }}>
+                                    Aucun Arrêté
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Detailed Insights List */}

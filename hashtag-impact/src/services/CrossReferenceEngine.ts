@@ -1,7 +1,8 @@
 import { type Property, type Trajectory, type PropertyStatus } from '../types';
 import { fetchTransactionHistory } from './api/dvf';
 import { fetchOwnerDetails } from './api/pappers';
-import { fetchDPE } from './api/ademe';
+import { fetchDPE, fetchBuildingStatsFromDPE } from './api/ademe';
+import { fetchBuildingRisks, fetchCoproDetails } from './api/rnic';
 import { checkConsumption, fetchCityAverageConsumption } from './api/enedis';
 import { searchDeathRecord } from './api/matchid';
 import { searchAddress } from './api/ban';
@@ -12,38 +13,46 @@ interface AnalysisReport {
 }
 
 export const analyzeProperty = async (address: string): Promise<AnalysisReport> => {
-    // 1. Fetch Coordinates first (needed for DVF)
     const banResult = await searchAddress(address);
     const coordinates = banResult ? banResult.geometry.coordinates : null; // [lon, lat]
     const city = banResult ? banResult.properties.city : 'Paris';
 
-    // Use normalized address if available for better matching in other services
     const searchAddr = banResult ? banResult.properties.label : address;
 
-    // 2. Parallel Data Fetching
-    const [dvfData, ownerData, dpeData, cityAvgConsumption] = await Promise.all([
+    const banId = banResult?.properties.id; // Get BAN ID
+
+    const [rawDvfData, ownerData, dpeData, cityAvgConsumption, buildingRisks, coproDetails, dpeBuildingStats] = await Promise.all([
         coordinates ? fetchTransactionHistory(coordinates[1], coordinates[0]) : Promise.resolve([]),
-        fetchOwnerDetails(searchAddr), // Use normalized address
-        fetchDPE(searchAddr), // Use normalized address
-        fetchCityAverageConsumption(city)
+        fetchOwnerDetails(searchAddr),
+        fetchDPE(searchAddr, banId),
+        fetchCityAverageConsumption(city),
+        coordinates ? fetchBuildingRisks(coordinates[1], coordinates[0]) : Promise.resolve({ isPeril: false, isInsalubre: false }),
+        fetchCoproDetails(searchAddr),
+        banId ? fetchBuildingStatsFromDPE(banId) : Promise.resolve({ totalLots: 0, totalSurface: 0 })
     ]);
 
-    // 2b. Dependent Fetches
+    const number = parseInt(searchAddr.match(/\d+/)?.[0] || '0');
+
+    const dvfData = rawDvfData.filter(t => {
+        if (t.adresse_numero && t.adresse_numero !== number) return false;
+        return true;
+    }).sort((a, b) => new Date(b.date_mutation).getTime() - new Date(a.date_mutation).getTime());
+
+    console.log(`[CrossReferenceEngine] Filtered DVF transactions from ${rawDvfData.length} to ${dvfData.length} for ${searchAddr}`);
+
     let consumptionCheck = await checkConsumption(city, searchAddr, cityAvgConsumption);
     let nearbySuggestion = undefined;
 
-    // Fallback Logic: Nearest Neighbor Search
     if (consumptionCheck.consumption === null) {
-        // Try nearby numbers +/- 2
         console.log('[CrossReferenceEngine] No data for exact address. Trying nearby...');
         const streetBase = searchAddr.replace(/\d+/, '').trim();
         const number = parseInt(searchAddr.match(/\d+/)?.[0] || '0');
 
         if (number > 0) {
-            const nearbyNumbers = [number - 2, number + 2, number - 1, number + 1]; // Prioritize same side
+            const nearbyNumbers = [number - 2, number + 2, number - 1, number + 1]
             for (const n of nearbyNumbers) {
                 if (n <= 0) continue;
-                const nearbyAddr = `${n} ${streetBase}`; // Simplified reconstruction
+                const nearbyAddr = `${n} ${streetBase}`;
                 const nearbyCheck = await checkConsumption(city, nearbyAddr, cityAvgConsumption);
                 if (nearbyCheck.consumption !== null) {
                     console.log(`[CrossReferenceEngine] Found nearby data at ${nearbyAddr}`);
@@ -67,16 +76,8 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
 
     const insights: string[] = [];
     let score = 0;
-
-    // --- SCORING ALGORITHM (Refined) ---
-    // Max Score: 100 (weighted indicators)
-
-    // 1. Consumption Gap (Weight: 40)
-    // Theoretical Consumption (MWh/year/unit)
-    // If DPE available: (kWh/m² * AvgSurface) / 1000
-    // AvgSurface assumption: 60m² (Paris avg for 2-3 rooms) or from DVF if recent? Let's stick to 60.
     const avgSurface = 60;
-    let theoreticalConsumption = cityAvgConsumption; // Default 4.5 MWh
+    let theoreticalConsumption = cityAvgConsumption;
 
     if (dpeData?.estimatedConsumption) {
         theoreticalConsumption = (dpeData.estimatedConsumption * avgSurface) / 1000;
@@ -84,6 +85,9 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
 
     const realConsumption = consumptionCheck.consumption; // MWh/year/unit
     let consumptionScore = 0;
+
+    let status: PropertyStatus = 'Occupied';
+    let trajectory: Trajectory = 'Indeterminate';
 
     if (realConsumption !== null) {
         const ratio = realConsumption / theoreticalConsumption;
@@ -100,6 +104,57 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
         // Neutral for now.
     }
     score += consumptionScore;
+
+    // --- DVF AGGREGATION FOR BUILDING STATS ---
+    // Enedis often fails (404/Privacy). We use DVF history to reconstruct building metrics.
+    // 1. Filter for valid housing transactions at this number
+    const buildingTransactions = dvfData.filter(t =>
+        (t.type_local === 'Appartement' || t.type_local === 'Maison') &&
+        t.surface_reelle_bati > 9 // Ignore tiny utility spaces
+    );
+
+    // 2. Estimate Unique Lots 
+    // Heuristic: Parse "lot1_numero" to find the highest lot number (e.g., "42" -> at least 42 lots)
+    // Also use unique count as a baseline.
+    let maxLotNumber = 0;
+    const uniqueDvfLots = new Set();
+
+    buildingTransactions.forEach(t => {
+        if (t.lot1_numero) {
+            uniqueDvfLots.add(t.lot1_numero);
+            const parsed = parseInt(t.lot1_numero);
+            if (!isNaN(parsed) && parsed < 500) { // <500 to avoid "Lot 1001" which might be distinct block
+                if (parsed > maxLotNumber) maxLotNumber = parsed;
+            }
+        } else {
+            uniqueDvfLots.add(`${t.surface_reelle_bati}-${t.valeur_fonciere}`);
+        }
+    });
+
+    const countUnique = uniqueDvfLots.size;
+
+    // Fallback for lots: Max of Enedis PDL vs Max Lot Number vs Unique Sales
+    // usage of maxLotNumber helps if turnover is low but we saw "Lot 15" sold.
+    const estimatedTotalLots = Math.max(consumptionCheck.unitsCount, countUnique, maxLotNumber > 0 ? maxLotNumber : 0, 1);
+
+    // 3. Estimate Building Surface
+    // Sum of surfaces of these unique lots? hard to know which are unique.
+    // Alternative: Average surface * estimated lots
+    const avgDvfSurface = buildingTransactions.reduce((acc, t) => acc + t.surface_reelle_bati, 0) / (buildingTransactions.length || 1);
+
+    // Fallback order: DVF Average -> DPE Surface (Unit) -> Default 60
+    const baseSurface = avgDvfSurface > 10 ? avgDvfSurface : (dpeData?.surfaceEstimate || 60);
+
+    // Logic: If Enedis gives 0 units, use DVF estimate.
+    // Logic: If Enedis gives 0 units, use DVF estimate or DPE Stats.
+    // DPE Stats (dpeBuildingStats) are often more accurate for total units if DVF is sparse.
+    const finalUnitsCount = consumptionCheck.unitsCount > 0
+        ? consumptionCheck.unitsCount
+        : Math.max(estimatedTotalLots, dpeBuildingStats.totalLots);
+
+    const finalBuildingSurface = (consumptionCheck.unitsCount && avgSurface)
+        ? consumptionCheck.unitsCount * avgSurface
+        : (dpeBuildingStats.totalSurface > 0 ? dpeBuildingStats.totalSurface : (finalUnitsCount * baseSurface));
 
     // 2. Transaction Void (Weight: 30)
     // No transaction in > 5 years
@@ -136,6 +191,17 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
         insights.push(`Propriétaire décédé (+20)`);
     }
 
+    // Georisques / Peril
+    if (buildingRisks.isPeril) {
+        score += 30;
+        insights.push("Immeuble sous arrêté de péril (+30)");
+        status = 'Vacant'; // Almost certainly problems preventing occupation
+    }
+    if (buildingRisks.isInsalubre) {
+        score += 20;
+        insights.push("Signalé insalubre (+20)");
+    }
+
     // 5. Energy Sieve (Weight: 10)
     // High probability of vacancy if G-rated
     if (dpeData?.isEnergySieve) {
@@ -160,9 +226,6 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
     // --- CLASSIFICATION ---
     // Remove normalization to 24. Use raw score capped at 100.
     const finalVacancyScore = Math.min(score, 100);
-
-    let status: PropertyStatus = 'Occupied';
-    let trajectory: Trajectory = 'Indeterminate';
 
     if (score >= 12) { // >= 50% of criteria met
         status = 'Vacant';
@@ -192,7 +255,7 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
         city: banResult ? banResult.properties.city : 'Inconnu',
         zipCode: banResult ? banResult.properties.postcode : '00000',
         type: systemType,
-        area: lastTransaction?.surface_reelle_bati || 0,
+        area: lastTransaction?.surface_reelle_bati || dpeData?.surfaceEstimate || 0,
         vacancyScore: finalVacancyScore, // UI expects 0-100
         trajectory,
         status,
@@ -201,9 +264,10 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
         lastTransactionDate: lastTransaction?.date_mutation,
         insights,
         confidence: 0.9,
-        numberOfLots: consumptionCheck.unitsCount || 1, // Populate with Enedis data
+        numberOfLots: finalUnitsCount, // Populate with Enedis data or DVF Aggregation
 
         // Enhance with new fields
+        orientation: 'N/A', // TODO: Complex to deduce without geometric data
         nearbyValidAddress: nearbySuggestion,
         consumptionDetails: {
             real: realConsumption || 0,
@@ -211,8 +275,17 @@ export const analyzeProperty = async (address: string): Promise<AnalysisReport> 
             ratio: realConsumption && theoreticalConsumption ? realConsumption / theoreticalConsumption : 1,
             segment: consumptionCheck.segment || 'Unknown'
         },
-        buildingSurface: consumptionCheck.unitsCount ? consumptionCheck.unitsCount * avgSurface : 0, // Estimate
-        floors: consumptionCheck.unitsCount > 20 ? Math.ceil(consumptionCheck.unitsCount / 4) : 0, // Very rough estimate if not available
+        buildingSurface: finalBuildingSurface, // Improved estimate from DVF aggregation
+        floors: finalUnitsCount > 20 ? Math.ceil(finalUnitsCount / 4) : 0, // Very rough estimate if not available
+
+        buildingDetails: {
+            rnicId: coproDetails.rnicId || 'Non identifié',
+            totalLots: coproDetails.totalLots || finalUnitsCount,
+            constructionYear: coproDetails.constructionYear || 1970, // Fallback
+            isPeril: buildingRisks.isPeril,
+            isInsalubre: buildingRisks.isInsalubre,
+            valeurAssuree: undefined
+        },
 
         scoringAttributes: {
             consumptionRatio: realConsumption && theoreticalConsumption ? realConsumption / theoreticalConsumption : 1,

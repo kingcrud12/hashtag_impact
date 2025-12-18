@@ -8,16 +8,22 @@ export interface DVFTransaction {
     nom_commune: string;
     type_local: string;
     surface_reelle_bati: number;
+    nombre_lots?: number;
+    lot1_numero?: string;
 }
 
 // Simulates fetching from https://api.cquest.org/dvf
 // Fetches from https://api.cquest.org/dvf
-export const fetchTransactionHistory = async (lat: number, lon: number, radius: number = 20): Promise<DVFTransaction[]> => {
+export const fetchTransactionHistory = async (lat: number, lon: number, radius: number = 50): Promise<DVFTransaction[]> => {
     console.log(`[DVF] Searching transactions at ${lat}, ${lon} (radius: ${radius}m)`);
 
     try {
         // Query DVF for transactions within radius
-        const response = await fetch(`https://api.cquest.org/dvf?lat=${lat}&lon=${lon}&dist=${radius}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        const response = await fetch(`https://api.cquest.org/dvf?lat=${lat}&lon=${lon}&dist=${radius}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
         if (!response.ok) throw new Error('DVF API Error');
 
@@ -34,7 +40,9 @@ export const fetchTransactionHistory = async (lat: number, lon: number, radius: 
                 code_postal: f.properties.code_postal,
                 nom_commune: f.properties.commune,
                 type_local: f.properties.type_local,
-                surface_reelle_bati: f.properties.surface_relle_batiment
+                surface_reelle_bati: f.properties.surface_relle_batiment,
+                nombre_lots: f.properties.nombre_lots,
+                lot1_numero: f.properties.lot1_numero
             }));
         }
         return [];

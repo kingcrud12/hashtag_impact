@@ -4,7 +4,7 @@ import time
 import random
 from datetime import datetime
 
-ADDRESS_QUERY = "10 rue de l'ingénieur robert keller paris 75014"
+ADDRESS_QUERY = "149 Rue d'Alésia 75014 Paris"
 
 def search_ban(query):
     print(f"[BAN] Searching for: {query}")
@@ -153,8 +153,10 @@ def analyze(address):
     print(f"-> City: {city}")
     
     # 2. DVF
-    transactions = fetch_dvf(coords[1], coords[0]) # lat, lon
+    transactions = fetch_dvf(coords[1], coords[0], radius=100) # lat, lon
     print(f"-> DVF Transactions Found: {len(transactions)}")
+    for t in transactions:
+        print(f"   - {t.get('date_mutation')} ({t.get('valeur_fonciere')}€)")
     last_transaction = transactions[0] if transactions else None
     
     # 3. ADEME

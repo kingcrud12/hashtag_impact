@@ -1,5 +1,5 @@
 
-interface BanFeature {
+export interface BanFeature {
     properties: {
         label: string;
         score: number;
@@ -10,6 +10,7 @@ interface BanFeature {
         citycode: string; // INSEE code, crucial for DVF
         context: string;
         type: string;
+        id: string; // BAN ID (Interop Key)
         x: number;
         y: number;
     };
@@ -22,6 +23,20 @@ interface BanFeature {
 interface BanResponse {
     features: BanFeature[];
 }
+
+export const autocompleteAddress = async (query: string): Promise<BanFeature[]> => {
+    if (!query || query.length < 3) return [];
+    try {
+        const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&autocomplete=1`);
+        if (!response.ok) throw new Error('BAN API Warning');
+
+        const data: BanResponse = await response.json();
+        return data.features || [];
+    } catch (error) {
+        console.warn('BAN Autocomplete Error:', error);
+        return [];
+    }
+};
 
 export const searchAddress = async (query: string): Promise<BanFeature | null> => {
     try {

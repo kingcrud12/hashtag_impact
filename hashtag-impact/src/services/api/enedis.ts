@@ -1,4 +1,4 @@
-const BASE_URL = 'https://data.enedis.fr/api/explore/v2.1/catalog/datasets/consommation-annuelle-residentielle-par-adresse/records';
+const BASE_URL = 'https://data.enedis.fr/api/records/1.0/search/';
 
 export interface EnedisBuildingConsumption {
     addr_label: string;
@@ -10,26 +10,47 @@ export interface EnedisBuildingConsumption {
 
 export const fetchBuildingConsumption = async (city: string, address: string): Promise<EnedisBuildingConsumption | null> => {
     try {
-        // Enedis API: consommation-annuelle-residentielle-par-adresse
-        // Query by city and refine address match. 
-        // Input address is normalized (e.g. "12 Rue de l'Ingénieur Robert Keller 75015 Paris")
-        // We strip the zip/city to get "12 Rue de l'Ingénieur Robert Keller"
-        const streetPart = address.replace(/\s\d{5}.*$/i, '').trim();
-        const query = `nom_commune="${city.toUpperCase()}" AND adresse LIKE "${streetPart.toUpperCase()}"`
-        const url = `${BASE_URL}?where=${encodeURIComponent(query)}&limit=5`;
+        // Enedis API V1.0
+        // Dataset: consommation-annuelle-residentielle-par-adresse
+        // Query syntax: q=nom_commune:"PARIS" AND adresse:"12 RUE..."
 
-        const response = await fetch(url);
-        if (!response.ok) return null;
+        const streetPart = address.replace(/\s\d{5}.*$/i, '').trim();
+        // V1.0 uses Lucene-like syntax in 'q'
+        // Use exact phrase search for address to avoid partial matches on "RUE" or "DE"
+        const query = `nom_commune:"${city.toUpperCase()}" AND adresse:"${streetPart.toUpperCase()}"`;
+
+        const params = new URLSearchParams({
+            dataset: 'consommation-annuelle-residentielle-par-adresse',
+            q: query,
+            rows: '5'
+        });
+
+        const url = `${BASE_URL}?${params.toString()}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.warn(`[Enedis] API Error ${response.status}: ${response.statusText}`);
+            return null;
+        };
 
         const data = await response.json();
-        if (data.results && data.results.length > 0) {
-            const record = data.results[0]; // Take best match
+
+        // V1.0 response structure: { records: [ { fields: { ... } } ] }
+        if (data.records && data.records.length > 0) {
+            // Find best match manually if needed, or trust V1.0 relevance
+            const record = data.records[0].fields;
+
             return {
                 addr_label: record.adresse,
                 conso_totale: record.consommation_annuelle_totale_de_l_adresse_mwh,
                 nb_pdl: record.nombre_de_logements,
                 conso_avg: record.consommation_annuelle_moyenne_par_site_de_l_adresse_mwh, // in MWh
-                segment: record.segment_de_client
+                segment: record.segment_de_client || 'RESIDENTIEL'
             };
         }
         return null;

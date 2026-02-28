@@ -10,6 +10,7 @@ export default function Button({
     variant = 'primary',
     size = 'md',
     className = '',
+    style: customStyle,
     children,
     ...props
 }: ButtonProps) {
@@ -50,14 +51,15 @@ export default function Button({
     };
 
     // Merge styles
-    const style = {
+    const mergedStyle = {
         ...baseStyles,
         ...variants[variant],
-        ...sizes[size]
+        ...sizes[size],
+        ...customStyle
     };
 
     return (
-        <button style={style} className={className} {...props}>
+        <button style={mergedStyle} className={className} {...props}>
             {children}
         </button>
     );

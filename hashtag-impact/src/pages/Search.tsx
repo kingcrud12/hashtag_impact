@@ -432,7 +432,7 @@ export default function Search() {
                 )}
 
                 {/* Map Container - Taking top half */}
-                <div style={{ flex: 1, borderBottom: "1px solid var(--color-border)", minHeight: "40%" }}>
+                <div className="map-container-wrapper">
                     <MapContainer
                         center={locationCenter}
                         zoom={12}
@@ -464,23 +464,23 @@ export default function Search() {
                 </div>
 
                 {/* Section 6 - Résultats Table - Taking bottom half */}
-                <div style={{ flex: 1, padding: "2rem", overflowY: "auto", background: "var(--color-background-subtle)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                        <h2 style={{ fontSize: "1.5rem", fontWeight: 700 }}>Section 6 – Résultats et suivi</h2>
-                        <div style={{ display: "flex", gap: "1rem" }}>
+                <div className="results-container">
+                    <div className="results-header">
+                        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>Section 6 – Résultats et suivi</h2>
+                        <div className="results-actions">
                             <Button variant="outline" size="sm"><Download size={16} /> Export PDF</Button>
                             <Button size="sm"><Share2 size={16} /> Routage Partenaires</Button>
                         </div>
                     </div>
 
                     <div className="results-table-container">
-                        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                            <thead style={{ background: "#F1F5F9", borderBottom: "1px solid var(--color-border)" }}>
+                        <table className="responsive-table">
+                            <thead>
                                 <tr>
-                                    <th style={{ padding: "1rem" }}>Adresse</th>
-                                    <th style={{ padding: "1rem" }}>Score Vacance (LOVAC)</th>
-                                    <th style={{ padding: "1rem" }}>Orientation</th>
-                                    <th style={{ padding: "1rem" }}>État juridique</th>
+                                    <th className="table-header">Adresse</th>
+                                    <th className="table-header">Score Vacance (LOVAC)</th>
+                                    <th className="table-header">Orientation</th>
+                                    <th className="table-header">État juridique</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -490,20 +490,20 @@ export default function Search() {
                                     const percentage = totalNumber > 0 ? ((vacantNumber / totalNumber) * 100).toFixed(1) : "0";
                                     return (
                                         // Mocked matched row combining the LOVAC real data with the search query
-                                        <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
-                                            <td style={{ padding: "1rem", fontWeight: 500 }}>{query}</td>
-                                            <td style={{ padding: "1rem" }}>
+                                        <tr>
+                                            <td className="table-cell" data-label="Adresse" style={{ fontWeight: 500 }}>{query}</td>
+                                            <td className="table-cell" data-label="Score Vacance (LOVAC)">
                                                 <span style={{ background: "#FEE2E2", color: "#991B1B", padding: "0.25rem 0.5rem", borderRadius: "99px", fontWeight: 600, fontSize: "0.875rem" }}>
                                                     {currentVacancyInfo.pp_vacant_plus_2ans_25 ? `${percentage}% (${vacantNumber} biens)` : "Moyen"}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: "1rem", color: "var(--color-text-muted)" }}>{orientationEco !== "Indifférent" ? orientationEco : "Mixte"}</td>
-                                            <td style={{ padding: "1rem", color: "var(--color-text-muted)" }}>{typePropriete !== "Indifférent" ? typePropriete : "Copropriété"}</td>
+                                            <td className="table-cell" data-label="Orientation" style={{ color: "var(--color-text-muted)" }}>{orientationEco !== "Indifférent" ? orientationEco : "Mixte"}</td>
+                                            <td className="table-cell" data-label="État juridique" style={{ color: "var(--color-text-muted)" }}>{typePropriete !== "Indifférent" ? typePropriete : "Copropriété"}</td>
                                         </tr>
                                     );
                                 })() : (
                                     <tr>
-                                        <td colSpan={5} style={{ padding: "3rem", textAlign: "center", color: "var(--color-text-muted)" }}>
+                                        <td colSpan={4} className="empty-state-cell">
                                             <MapIcon size={48} style={{ margin: "0 auto 1rem", opacity: 0.2 }} />
                                             Recherchez une commune pour filtrer les données LOVAC et découvrir les gisements territoriaux.
                                         </td>

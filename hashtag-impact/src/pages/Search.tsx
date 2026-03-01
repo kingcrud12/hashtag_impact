@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import Papa from "papaparse";
-import { Loader2, SlidersHorizontal, Map as MapIcon, ChevronDown, ChevronUp, Download, Share2 } from "lucide-react";
+import { Loader2, SlidersHorizontal, Map as MapIcon, ChevronDown, ChevronUp, Download, Share2, Filter, X } from "lucide-react";
 import Button from "../components/Button";
 import { autocompleteAddress, type BanFeature } from "../services/api/ban";
 import "leaflet/dist/leaflet.css";
@@ -17,6 +17,7 @@ L.Icon.Default.mergeOptions({
 
 export default function Search() {
     const [loadingCsv, setLoadingCsv] = useState(true);
+    const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
     const [lovacData, setLovacData] = useState<any[]>([]);
 
     // 1. Zone
@@ -147,20 +148,24 @@ export default function Search() {
     );
 
     return (
-        <div style={{ display: "flex", height: "calc(100vh - 64px)", overflow: "hidden" }}>
-            {/* Left Sidebar (Filters) */}
-            <aside
-                style={{
-                    width: "400px",
-                    overflowY: "auto",
-                    background: "var(--color-background-subtle)",
-                    borderRight: "1px solid var(--color-border)",
-                    padding: "1.5rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "1rem",
-                }}
+        <div className="search-layout">
+            {/* Mobile Filter Overlay */}
+            <div
+                className={`mobile-filter-overlay ${isMobileFiltersOpen ? 'open' : ''}`}
+                onClick={() => setIsMobileFiltersOpen(false)}
+            />
+
+            {/* Mobile Toggle Button */}
+            <button
+                className="mobile-filter-toggle"
+                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                aria-label="Basculer les filtres"
             >
+                {isMobileFiltersOpen ? <X size={24} /> : <Filter size={24} />}
+            </button>
+
+            {/* Left Sidebar (Filters) */}
+            <aside className={`search-sidebar ${isMobileFiltersOpen ? 'open' : ''}`}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
                     <SlidersHorizontal size={24} color="var(--color-primary)" />
                     <h2 style={{ fontSize: "1.5rem", margin: 0 }}>Filtres de recherche</h2>
@@ -416,7 +421,7 @@ export default function Search() {
             </aside>
 
             {/* Right Workspace (Map + Results Table) */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "white", position: "relative" }}>
+            <div className="search-workspace">
 
                 {/* Loading Overlay */}
                 {loadingCsv && (
@@ -468,7 +473,7 @@ export default function Search() {
                         </div>
                     </div>
 
-                    <div style={{ background: "white", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)", overflow: "hidden" }}>
+                    <div className="results-table-container">
                         <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                             <thead style={{ background: "#F1F5F9", borderBottom: "1px solid var(--color-border)" }}>
                                 <tr>
